@@ -1,0 +1,66 @@
+let a = 1;
+print("test"+a);
+a += 1;
+print("test"+a);
+a += 1;
+print("test"+a);
+func printWrapper(text) {
+    print("warpper"+text);
+}
+printWrapper(a);
+let array = [1,2,3,a];
+let i = 0;
+while(i < 4) {
+    printWrapper(array[i]);
+    i+=1;
+}
+
+
+func Closure() {
+    let value = 0;
+    func add(input) {
+        if (input) {
+            value += input;
+        } else {
+            value += 1;
+        }
+        
+        print("Closure value:" + value);
+        print("Current time:" + time());
+        return value;
+    }
+    return add;
+}
+let add = Closure();
+add();
+add();
+add(3);
+add(null);
+func testReturn(val){
+    if(val == 1) {
+        print("fast return");
+        return;
+    }
+    print("next loop");
+    let i = 0;
+    while(i<4) {
+        print("i:"+i);
+        if(i == val) {
+            break;
+        }
+        i+=1;
+    }
+    print("gogogo");
+    i = 0;
+    while(i<4) {
+        if(i == val) {
+            i+=1;
+            continue;
+        }
+        print("i:"+i);
+        i+=1;
+    }
+}
+
+testReturn(1);
+testReturn(2);
