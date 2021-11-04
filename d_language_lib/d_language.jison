@@ -10,8 +10,8 @@
 <comma_multiply>\*\/  %{ this.popState(); %}
 <comma_multiply>.      /* skip */
 \s+ /* skip whitespace */
-[0-9]+("."[0-9]+)?\b   return 'NUMBER'
-\".*?\"    return 'STRING'
+[0-9]+("."[0-9]+)?\b   return 'NUMBER'  // 捕获数字
+\".*?\"    return 'STRING' // 捕获字符串
 \'.*?\'    return 'STRING'
 "if"       return 'IF'
 "else"     return 'ELSE'
@@ -32,7 +32,7 @@
 "!="       return '!='
 ">="       return '>='
 "<="       return '<='
-[a-z_A-Z][a-zA-Z]* return 'IDENTIFY'
+[a-z_A-Z][a-zA-Z]* return 'IDENTIFY' //捕获标识符
 "*"        return '*'
 "/"        return '/'
 "+"        return '+'
@@ -95,7 +95,7 @@ sub_expression
     {
         $$ = new AST('EXPRESSION_SEQ',$1,$2);
     }
-    |block_expression
+    | block_expression
     {
         $$ = $1;
     }
@@ -126,7 +126,7 @@ normal_expression
     {
         $$ = $1;
     }
-    | set_expression ';' // 赋值表达式
+    | assign_expression ';' // 赋值表达式
     {
         $$ = $1;
     }
@@ -178,10 +178,14 @@ continue_expression
         $$ = new AST('CONTINUE');
     }
     ;
-set_expression
+assign_expression
     : IDENTIFY '=' value_expression
     {
         $$ = new AST('SET_VALUE',$1,$3);
+    }
+    | IDENTIFY '[' value_expression ']' '=' value_expression 
+    {
+        $$ = new AST('SET_ARRAY_VALUE',$1,$3,$6);
     }
     ;
 if_expression
@@ -406,8 +410,6 @@ array_list
         $$ = new AST('ARRAY_VALUE_LIST',$1,$3);
     }
     ;
-
-
 %%
 function parseString(str) {
     return str.substr(1,str.length-2);

@@ -2,21 +2,23 @@ let a = 1;
 print("test"+a);
 a += 1;
 print("test"+a);
-a += 1;
-print("test"+a);
+// 函数创建
 func printWrapper(text) {
     print("warpper"+text);
 }
 printWrapper(a);
+// 数组操作
 let array = [1,2,3,a];
+array[1] = 6;
+append(array,72);
 let i = 0;
-while(i < 4) {
+while(i < len(array)) {
     printWrapper(array[i]);
     i+=1;
 }
 
-
 func Closure() {
+    // 闭包
     let value = 0;
     func add(input) {
         if (input) {
@@ -36,35 +38,8 @@ add();
 add();
 add(3);
 add(null);
-func testReturn(val){
-    if(val == 1) {
-        print("fast return");
-        return;
-    }
-    print("next loop");
-    let i = 0;
-    while(i<4) {
-        print("i:"+i);
-        if(i == val) {
-            break;
-        }
-        i+=1;
-    }
-    print("gogogo");
-    i = 0;
-    while(i<4) {
-        if(i == val) {
-            i+=1;
-            continue;
-        }
-        print("i:"+i);
-        i+=1;
-    }
-}
 
-testReturn(1);
-testReturn(2);
-
+// 异步回调
 setTimeout(1000,func cb(){
     print("one");
     input("input:",func ret(answer) {

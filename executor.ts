@@ -180,6 +180,31 @@ const InternalFunctionMap: Map<string, FunctionExecutor> = new Map([
       return null;
     }),
   ],
+  [
+    "len",
+    new InternalFunctionExecutor((value:Value)=>{
+      if(value instanceof Array) {
+        return value.length;
+      }
+      if(value instanceof Map) {
+        return value.size;
+      }
+      if(value instanceof Object) {
+        return Object.keys(value).length;
+      }
+      return 0;
+    })
+  ],
+  [
+    "append",
+    new InternalFunctionExecutor((array:Value,value:Value)=>{
+      if(array instanceof Array) {
+        array.push(value);
+        return value;
+      }
+      throw new Error(`append target must be a array`);
+    })
+  ]
 ]);
 
 function executeAdd(ast: AST, context: Context): Value {
@@ -461,6 +486,29 @@ function executePoint(ast: AST, context: Context): Value {
   }
   return wrapperValue(left[right]);
 }
+function executeSetArrayValue(ast:AST,context:Context):Value {
+  const name = ast.param2 as string;
+  const [target] = context.searchInContext(name);
+  if(!target) {
+    throw new Error(`can't set value in to null`);
+  }
+  const index = executeAST(ast.param3!,context) as string|number;
+  const value = executeAST(ast.param4!,context);
+  if(target instanceof Map) {
+    target.set(String(index),value);
+    return value;
+  }
+  if(target instanceof Array) {
+    target[Number(index)] = value
+    return value;
+  }
+  if(target instanceof Object) {
+    (target as any)[index] = value;
+    return value;
+  }
+  throw new Error(`target can't set value`);
+
+}
 export function executeAST(ast: AST, context: Context): Value {
   if (context.NormalExit !== undefined) {
     return context.NormalExit;
@@ -522,6 +570,8 @@ export function executeAST(ast: AST, context: Context): Value {
       return executeDeclareInitial(ast, context);
     case "SET_VALUE":
       return executeSetValue(ast, context);
+    case "SET_ARRAY_VALUE":
+      return executeSetArrayValue(ast,context);
     case "FUNCTION_CALL":
       return executeFunctionCall(ast, context);
     case "FUNCTION_DECLARE":

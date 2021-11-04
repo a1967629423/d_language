@@ -8,6 +8,7 @@ async function main() {
   const parser = new Parser();
 
   const ast = parser.parse(testCode);
+  // console.log(JSON.stringify(ast,null,2));
   executeAST(ast,new Context());
 }
 
