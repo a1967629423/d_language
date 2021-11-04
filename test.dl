@@ -64,3 +64,10 @@ func testReturn(val){
 
 testReturn(1);
 testReturn(2);
+
+setTimeout(1000,func cb(){
+    print("one");
+    input("input:",func ret(answer) {
+        print("output:"+answer + rand());
+    });
+});

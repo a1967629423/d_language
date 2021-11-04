@@ -68,7 +68,7 @@
 %left '*' '/'
 %left '[' ']'
 %left '(' ')'
-%left '^'
+%left '^' '.'
 %right '!'
 %right '%'
 %left UMINUS
@@ -147,6 +147,7 @@ normal_expression
         $$ = $1;
     }
     ;
+
 return_expression
     : RETURN normal_expression
     {
@@ -300,6 +301,10 @@ value_expression
     {
         $$ = new AST($2,$1,$3);
     }
+    | value_expression '.' IDENTIFY
+    {
+        $$ = new AST($2,$1,$3);
+    }
     | '!' value_expression 
     {
         $$ = new AST($1,$2);
@@ -362,16 +367,25 @@ function_call_expression
     }
     ;
 function_call_param_list
-    : value_expression
+    : paramable_expression
     {
         $$ = new AST('CALL_PARAM_LIST',$1);
     }
-    | value_expression ',' function_call_param_list
+    | paramable_expression ',' function_call_param_list
     {
         $$ = new AST('CALL_PARAM_LIST',$1,$3);
     }
     ;
-
+paramable_expression
+    : value_expression
+    {
+        $$ = $1;
+    }
+    | function_expression
+    {
+        $$ = $1;
+    }
+    ;
 function_param_list
     : IDENTIFY
     {

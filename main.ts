@@ -8,8 +8,7 @@ async function main() {
   const parser = new Parser();
 
   const ast = parser.parse(testCode);
-  const res = executeAST(ast,new Context());
-  console.log('execute Result:',res);
+  executeAST(ast,new Context());
 }
 
 main();

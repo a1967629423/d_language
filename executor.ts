@@ -1,13 +1,15 @@
 import type { AST } from "./d_language_lib";
+import { createInterface } from "readline";
+
 export class Context {
   /** 流程控制状态,在return时此值会被设置为return值 */
-  exit:Value | undefined = undefined;
-  break:Value | undefined = undefined;
-  continue:Value | undefined = undefined;
+  exit: Value | undefined = undefined;
+  break: Value | undefined = undefined;
+  continue: Value | undefined = undefined;
   get NormalExit() {
-    if(this.exit !== undefined) return this.exit;
-    if(this.break !== undefined) return this.break;
-    if(this.continue !== undefined) return this.continue;
+    if (this.exit !== undefined) return this.exit;
+    if (this.break !== undefined) return this.break;
+    if (this.continue !== undefined) return this.continue;
     return undefined;
   }
   constructor(
@@ -77,11 +79,50 @@ class InternalFunctionExecutor extends FunctionExecutor {
     return this.func(...params);
   }
 }
+function wrapperValue(v: any): Value {
+  if (v instanceof Function) {
+    new InternalWrapperFunction(v);
+  }
+  return v;
+}
+function unWrapperValue(v: Value) {
+  if (v instanceof FunctionExecutor) {
+    if (v instanceof InternalFunctionExecutor) {
+      return v.func;
+    }
+    if (v instanceof InternalWrapperFunction) {
+      return v.getBindFunc();
+    }
+    return null;
+  }
+  return v;
+}
+class InternalWrapperFunction extends FunctionExecutor {
+  constructor(public func: (...args: any[]) => any, public target?: any) {
+    super(new Context());
+  }
+  getBindFunc() {
+    if (this.target) {
+      return this.func.bind(this.target);
+    }
+    return this.func;
+  }
+  override call(params: Value[]): Value {
+    if (this.target) {
+      return wrapperValue(
+        this.func.apply(this.target, params.map(unWrapperValue))
+      );
+    } else {
+      return wrapperValue(this.func(params.map(unWrapperValue)));
+    }
+  }
+}
 type Value =
   | number
   | string
   | boolean
   | null
+  | object
   | Map<string, Value>
   | Value[]
   | FunctionExecutor;
@@ -97,6 +138,46 @@ const InternalFunctionMap: Map<string, FunctionExecutor> = new Map([
     "time",
     new InternalFunctionExecutor(() => {
       return Date.now();
+    }),
+  ],
+  [
+    "input",
+    new InternalFunctionExecutor((...args: Value[]) => {
+      const question = (args[0] as string) ?? "";
+      const callback = args[1] as FunctionExecutor;
+      if (!callback) {
+        throw new Error(`input require callback`);
+      }
+      const readlineInterface = createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+      readlineInterface.question(question, (answer) => {
+        callback.call([answer]);
+        readlineInterface.close();
+      });
+      return null;
+    }),
+  ],
+  [
+    "rand",
+    new InternalFunctionExecutor(() => {
+      return Math.random();
+    }),
+  ],
+  [
+    "setTimeout",
+    new InternalFunctionExecutor((...args: Value[]) => {
+      const time = args[0] as number;
+      const cb =args[1] as FunctionExecutor;
+      if (typeof time !== "number") throw new Error(`time must be a number`);
+      if(!(cb instanceof FunctionExecutor)){
+        throw new Error(`cb must be a function`);
+      }
+      setTimeout(()=>{
+        cb.call([]);
+      }, time)
+      return null;
     }),
   ],
 ]);
@@ -141,7 +222,7 @@ function executeFunctionCall(ast: AST, context: Context) {
     return InternalFunctionMap.get(identity)!.call(params);
   }
   const [func] = context.searchInContext(identity);
-  
+
   if (func instanceof FunctionExecutor) {
     return func.call(params);
   } else {
@@ -178,7 +259,7 @@ function executeArrayList(
   }
   const value = executeAST(ast.param2!, context);
   arr.push(value);
-  executeArrayList(ast.param3!,context,arr);
+  executeArrayList(ast.param3!, context, arr);
   return arr;
 }
 function executeArray(ast: AST, context: Context): Value {
@@ -283,7 +364,7 @@ function executeIf(ast: AST, context: Context): Value {
     if (ast.param3) {
       executeAST(ast.param3, childContext);
 
-      if(childContext.exit !== undefined) {
+      if (childContext.exit !== undefined) {
         context.exit = childContext.exit;
       }
     }
@@ -293,13 +374,13 @@ function executeIf(ast: AST, context: Context): Value {
     }
   }
   // 如果子上下文return了，根据流程控制if应该传递return状态
-  if(childContext.exit !== undefined) {
+  if (childContext.exit !== undefined) {
     context.exit = childContext.exit;
   }
-  if(childContext.break !== undefined) {
+  if (childContext.break !== undefined) {
     context.break = childContext.break;
   }
-  if(childContext.continue !== undefined) {
+  if (childContext.continue !== undefined) {
     context.continue = childContext.continue;
   }
   return null;
@@ -313,23 +394,23 @@ function executeWhile(ast: AST, context: Context): Value {
       executeAST(ast.param3, childContext);
     }
     // 如果子上下文return了，根据流程控制while应该传递return状态
-    if(childContext.exit !== undefined) {
+    if (childContext.exit !== undefined) {
       context.exit = childContext.exit;
       return null;
     }
-    if(childContext.break !== undefined) {
-      console.log('break');
+    if (childContext.break !== undefined) {
+      console.log("break");
       childContext.break = undefined;
       return null;
     }
-    if(childContext.continue !== undefined) {
+    if (childContext.continue !== undefined) {
       childContext.continue = undefined;
     }
   }
   return null;
 }
 function executeReturn(ast: AST, context: Context): Value {
-  if(!ast.param2) {
+  if (!ast.param2) {
     context.exit = null;
     return null;
   }
@@ -337,35 +418,51 @@ function executeReturn(ast: AST, context: Context): Value {
   context.exit = res;
   return res;
 }
-function executeBreak(ast:AST,context:Context): Value {;
-  if(!ast.param2) {
+function executeBreak(ast: AST, context: Context): Value {
+  if (!ast.param2) {
     context.break = null;
     return null;
   }
-  const res = executeAST(ast.param2!,context);
+  const res = executeAST(ast.param2!, context);
   context.break = res;
   return res;
 }
-function executeContinue(ast:AST,context:Context):Value {
-  if(!ast.param2) {
+function executeContinue(ast: AST, context: Context): Value {
+  if (!ast.param2) {
     context.continue = null;
     return null;
   }
-  const res = executeAST(ast.param2!,context);
+  const res = executeAST(ast.param2!, context);
   context.continue = res;
   return res;
 }
-function executeArrayGet(ast:AST,context:Context) {
+function executeArrayGet(ast: AST, context: Context) {
   const name = ast.param2 as string;
-  const idx = executeAST(ast.param3!,context);
+  const idx = executeAST(ast.param3!, context);
   const [value] = context.searchInContext(name);
-  if(typeof value !== 'object'){
+  if (typeof value !== "object") {
     throw new Error(`the ${name} can't use array get`);
   }
-  return ((value as any)[idx as any]?? null) as Value;
+  return ((value as any)[idx as any] ?? null) as Value;
+}
+function executeNegative(ast: AST, context: Context): Value {
+  const value = executeAST(ast.param2!, context);
+  return !value;
+}
+
+function executePoint(ast: AST, context: Context): Value {
+  const left = executeAST(ast.param2, context) as any;
+  const right = ast.param3!.param2 as string;
+  if (!left) {
+    throw new Error(`left value is empty`);
+  }
+  if (!right) {
+    throw new Error(`right value is empty`);
+  }
+  return wrapperValue(left[right]);
 }
 export function executeAST(ast: AST, context: Context): Value {
-  if(context.NormalExit !== undefined) {
+  if (context.NormalExit !== undefined) {
     return context.NormalExit;
   }
   switch (ast.param1) {
@@ -377,6 +474,10 @@ export function executeAST(ast: AST, context: Context): Value {
       return executeMultiply(ast, context);
     case "/":
       return executeDivision(ast, context);
+    case "!":
+      return executeNegative(ast, context);
+    case ".":
+      return executePoint(ast, context);
     case "==":
       return executeEqual(ast, context);
     case "!=":
@@ -406,7 +507,7 @@ export function executeAST(ast: AST, context: Context): Value {
     case "ARRAY":
       return executeArray(ast, context);
     case "ARRAY_GET":
-      return executeArrayGet(ast,context);
+      return executeArrayGet(ast, context);
     case "NULL":
       return null;
     case "IDENTIFY":
@@ -428,12 +529,12 @@ export function executeAST(ast: AST, context: Context): Value {
     case "RETURN":
       return executeReturn(ast, context);
     case "BREAK":
-      return executeBreak(ast,context);
+      return executeBreak(ast, context);
     case "CONTINUE":
-      return executeContinue(ast,context);
+      return executeContinue(ast, context);
     case "EXPRESSION_SEQ":
       executeAST(ast.param2!, context);
-      if(context.NormalExit !== undefined) {
+      if (context.NormalExit !== undefined) {
         return context.NormalExit;
       }
       return executeAST(ast.param3!, context);
